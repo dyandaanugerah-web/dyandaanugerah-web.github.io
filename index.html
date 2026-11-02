@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi - Andya Projects</title>
+    <style>
+        
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(92, 77, 66, 0.15); width: 100%; max-width: 400px; border-top: 5px solid #8a7969; border: 1px solid #f0ebe1; }
+        h2 { text-align: center; color: #4a3b32; margin-bottom: 5px; font-size: 22px; }
+        h3 { text-align: center; color: #8a7969; margin-top: 0; margin-bottom: 20px; font-size: 14px; font-weight: normal; letter-spacing: 0.5px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #5c4d42; font-size: 14px; font-weight: 600; }
+        input { width: 100%; padding: 12px; border: 1px solid #d5cabd; border-radius: 6px; box-sizing: border-box; color: #4a3b32; transition: border-color 0.3s; }
+        input:focus { outline: none; border-color: #8a7969; }
+        input[readonly] { background-color: #fdfbf9; cursor: not-allowed; color: #8a7969; border: 1px dashed #d5cabd; }
+        
+      
+        #kamera { width: 100%; border-radius: 6px; border: 1px solid #d5cabd; background: #3e362e; }
+        .btn-kamera { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-bottom: 10px; transition: background 0.3s; }
+        .btn-coklat { background: #a6907d; color: white; }
+        .btn-coklat:hover { background: #8f7966; }
+        .btn-krem { background: #e8e1d7; color: #5c4d42; display: none; }
+        .btn-krem:hover { background: #d8c2c0; }
+        
+      
+        .btn-submit { width: 100%; padding: 14px; background: #6b5444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 15px; transition: background 0.3s, transform 0.1s; }
+        .btn-submit:hover { background: #544134; }
+        .btn-submit:active { transform: scale(0.98); }
+        .btn-submit:disabled { background: #c2b8b0; cursor: not-allowed; color: #ffffff; }
+        
+        #status { margin-top: 15px; text-align: center; font-size: 14px; line-height: 1.5; }
+        .success { color: #557c55; font-weight: bold; }
+        .error { color: #a95c5c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Absensi Karyawan</h2>
+    <h3>PT. Anugerah Naungan Dyanda</h3>
+    
+    <div class="form-group">
+        <label for="nama">Nama Lengkap</label>
+        <input type="text" id="nama" placeholder="Masukkan nama Anda..." required>
+    </div>
+
+    <div class="form-group">
+        <label>Foto Area Kerja / Selfie</label>
+        <video id="kamera" autoplay playsinline></video>
+        <img id="hasil-foto" style="display:none; width: 100%; border-radius: 6px; border: 1px solid #d5cabd;" />
+        <canvas id="kanvas" style="display:none;"></canvas>
+        
+        <button type="button" id="btn-foto" class="btn-kamera btn-coklat" onclick="ambilFoto()">Ambil Foto</button>
+        <button type="button" id="btn-ulang" class="btn-kamera btn-krem" onclick="ulangFoto()">Ulangi Foto</button>
+    </div>
+
+    <div class="form-group">
+        <label for="ip-address">Koneksi Jaringan (IP)</label>
+        <input type="text" id="ip-address" readonly placeholder="Mendeteksi IP...">
+    </div>
+    
+    <button id="btn-absen" class="btn-submit" onclick="submitAbsen()">Absensi</button>
+    <div id="status"></div>
+</div>
+
+<script>
+    const tanggalHariIni = new Date().toLocaleDateString('id-ID');
+    let fotoTersimpan = null;
+    let streamKamera = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        if (localStorage.getItem('status_absen') === tanggalHariIni) {
+            kunciFormAbsen("Anda sudah melakukan absensi hari ini.");
+            return; 
+        }
+
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => document.getElementById('ip-address').value = data.ip)
+            .catch(error => document.getElementById('ip-address').value = "Gagal mendeteksi IP");
+
+        nyalakanKamera();
+    });
+
+    function nyalakanKamera() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+            .then(stream => {
+                streamKamera = stream;
+                document.getElementById('kamera').srcObject = stream;
+            })
+            .catch(err => {
+                document.getElementById('status').innerHTML = '<span class="error">Izinkan akses kamera di browser untuk absen!</span>';
+            });
+    }
+
+    function ambilFoto() {
+        const video = document.getElementById('kamera');
+        const canvas = document.getElementById('kanvas');
+        const context = canvas.getContext('2d');
+        const hasilFoto = document.getElementById('hasil-foto');
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        fotoTersimpan = canvas.toDataURL('image/png');
+        
+        video.style.display = 'none';
+        hasilFoto.src = fotoTersimpan;
+        hasilFoto.style.display = 'block';
+        
+        document.getElementById('btn-foto').style.display = 'none';
+        document.getElementById('btn-ulang').style.display = 'block';
+    }
+
+    function ulangFoto() {
+        fotoTersimpan = null;
+        document.getElementById('hasil-foto').style.display = 'none';
+        document.getElementById('kamera').style.display = 'block';
+        document.getElementById('btn-foto').style.display = 'block';
+        document.getElementById('btn-ulang').style.display = 'none';
+    }
+
+    function kunciFormAbsen(pesan) {
+        document.getElementById('nama').disabled = true;
+        const btn = document.getElementById('btn-absen');
+        btn.disabled = true;
+        btn.innerText = "Selesai";
+        document.getElementById('status').innerHTML = `<span class="success">${pesan}</span>`;
+        
+        if(streamKamera) {
+            streamKamera.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    function submitAbsen() {
+        const nama = document.getElementById('nama').value;
+        const ip = document.getElementById('ip-address').value;
+        const statusDiv = document.getElementById('status');
+        const btn = document.getElementById('btn-absen');
+
+        if(!nama) {
+            statusDiv.innerHTML = '<span class="error">Nama wajib diisi!</span>';
+            return;
+        }
+
+        if(!fotoTersimpan) {
+            statusDiv.innerHTML = '<span class="error">Harap ambil foto terlebih dahulu!</span>';
+            return;
+        }
+
+        if(ip === "Mendeteksi IP..." || ip === "Gagal mendeteksi IP") {
+            statusDiv.innerHTML = '<span class="error">Tunggu sebentar, memastikan koneksi.</span>';
+            return;
+        }
+
+        const ipKantor = "125.166.31.54"; 
+        
+        if(ip !== ipKantor) {
+            statusDiv.innerHTML = '<span class="error">Gagal: Anda harus terhubung ke Wi-Fi kantor PT. Anugerah Naungan Dyanda!</span>';
+            return;
+        }
+
+        const waktu = new Date().toLocaleString('id-ID');
+        btn.disabled = true;
+        btn.innerText = "Mengirim Data...";
+
+        setTimeout(() => {
+            localStorage.setItem('status_absen', tanggalHariIni);
+            
+            kunciFormAbsen(`Berhasil Absen!<br><span style="color:#8a7969; font-weight:normal;">Waktu: ${waktu}<br>IP: ${ip}</span>`);
+            
+            document.getElementById('kamera').style.display = 'none';
+            document.getElementById('btn-ulang').style.display = 'none';
+        }, 1000);
+    }
+</script>
+</body>
+          </html>
